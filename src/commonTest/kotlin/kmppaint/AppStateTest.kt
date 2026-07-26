@@ -11,6 +11,7 @@ import kmppaint.palette.PALETTE
 import kmppaint.palette.RED
 import kmppaint.tools.BRUSH_RADIUS
 import kmppaint.tools.Brush
+import kmppaint.tools.Fill
 import kmppaint.tools.Pencil
 
 class AppStateTest {
@@ -236,5 +237,86 @@ class AppStateTest {
         state.onCanvasUp()
         assertEquals(BLUE, state.activeColour)
         assertEquals(Brush, state.activeTool)
+    }
+
+    @Test
+    fun fillOnCanvasDownRecoloursTheWholeBlankCanvasAndBumpsVersionOnce() {
+        val state = AppState(9, 7)
+        state.selectTool(Fill)
+        state.onCanvasDown(4, 3)
+        state.onCanvasUp()
+        assertEquals(1, state.version)
+        assertTrue(state.bitmap.copyPixels().all { it == DEFAULT_COLOUR })
+    }
+
+    @Test
+    fun fillUsesTheCurrentlySelectedPaletteColour() {
+        val state = AppState(9, 7)
+        state.selectColour(BLUE)
+        state.selectTool(Fill)
+        state.onCanvasDown(4, 3)
+        state.onCanvasUp()
+        assertTrue(state.bitmap.copyPixels().all { it == BLUE })
+        assertEquals(BLUE, state.activeColour)
+        assertEquals(Fill, state.activeTool)
+    }
+
+    @Test
+    fun fillIsBoundedByAPencilOutlineDrawnEarlier() {
+        val state = AppState(9, 7)
+        // A closed rectangle in the default colour, drawn as four pencil strokes.
+        state.onCanvasDown(1, 1)
+        state.onCanvasMove(7, 1)
+        state.onCanvasMove(7, 5)
+        state.onCanvasMove(1, 5)
+        state.onCanvasMove(1, 1)
+        state.onCanvasUp()
+        state.selectColour(RED)
+        state.selectTool(Fill)
+        state.onCanvasDown(4, 3)
+        state.onCanvasUp()
+        for (y in 0 until state.bitmap.height) {
+            for (x in 0 until state.bitmap.width) {
+                val onOutline = (x in 1..7 && y in 1..5) && (x == 1 || x == 7 || y == 1 || y == 5)
+                val want = when {
+                    onOutline -> DEFAULT_COLOUR
+                    x in 2..6 && y in 2..4 -> RED
+                    else -> WHITE
+                }
+                assertEquals(want, state.bitmap[x, y], "pixel ($x, $y)")
+            }
+        }
+    }
+
+    /**
+     * Fill is a click action: the drag that follows the press must not fill
+     * again, even when it crosses into another region. `version` still ticks
+     * per move event (see docs/fill-tool.md §3.5), so assert on pixels.
+     */
+    @Test
+    fun draggingWithFillSelectedFillsOnlyOnceAtThePressPoint() {
+        val state = AppState(7, 5)
+        state.selectTool(Pencil)
+        state.selectColour(RED)
+        for (y in 0..4) {
+            state.onCanvasDown(3, y)
+            state.onCanvasUp()
+        }
+        state.selectColour(BLUE)
+        state.selectTool(Fill)
+        state.onCanvasDown(1, 2)
+        state.onCanvasMove(4, 2)
+        state.onCanvasMove(6, 2)
+        state.onCanvasUp()
+        for (y in 0 until state.bitmap.height) {
+            for (x in 0 until state.bitmap.width) {
+                val want = when {
+                    x < 3 -> BLUE
+                    x == 3 -> RED
+                    else -> WHITE
+                }
+                assertEquals(want, state.bitmap[x, y], "pixel ($x, $y)")
+            }
+        }
     }
 }
