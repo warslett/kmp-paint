@@ -54,5 +54,23 @@ object Brush : Tool {
     }
 }
 
-/** Every tool, in selector display order. Step 6 appends Fill. */
-val TOOLS: List<Tool> = listOf(Pencil, Brush)
+/**
+ * Fill: a click floods the 4-connected region of the clicked pixel's colour
+ * with the active colour (FR-FILL). A closed pencil outline encloses a
+ * region that the fill paints without leaking past it, because every pixel
+ * of a different colour is a fill boundary. Click-only: dragging is a no-op.
+ */
+object Fill : Tool {
+    override val label = "Fill"
+
+    override fun onDown(bitmap: CanvasBitmap, x: Int, y: Int, colour: Int) {
+        floodFill(bitmap, x, y, colour)
+    }
+
+    override fun onMove(bitmap: CanvasBitmap, fromX: Int, fromY: Int, toX: Int, toY: Int, colour: Int) {
+        // Click-only tool: dragging the fill cursor does nothing.
+    }
+}
+
+/** Every tool, in selector display order. */
+val TOOLS: List<Tool> = listOf(Pencil, Brush, Fill)
