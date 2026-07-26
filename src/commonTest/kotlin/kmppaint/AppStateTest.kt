@@ -1,6 +1,7 @@
 package kmppaint
 
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
@@ -11,6 +12,7 @@ import kmppaint.palette.PALETTE
 import kmppaint.palette.RED
 import kmppaint.tools.BRUSH_RADIUS
 import kmppaint.tools.Brush
+import kmppaint.tools.Fill
 import kmppaint.tools.Pencil
 
 class AppStateTest {
@@ -236,5 +238,61 @@ class AppStateTest {
         state.onCanvasUp()
         assertEquals(BLUE, state.activeColour)
         assertEquals(Brush, state.activeTool)
+    }
+
+    @Test
+    fun fillOnCanvasDownFillsTheClickedRegionInTheActiveColourAndBumpsVersionOnce() {
+        val state = AppState(8, 8)
+        state.selectColour(RED)
+        state.selectTool(Fill)
+        state.onCanvasDown(3, 4)
+        assertEquals(1, state.version)
+        assertTrue(state.bitmap.copyPixels().all { it == RED }, "the empty canvas is one region")
+    }
+
+    @Test
+    fun onCanvasMoveAfterAFillChangesNoPixels() {
+        val state = AppState(9, 7)
+        // A closed pencil rectangle, filled red inside.
+        state.onCanvasDown(2, 1)
+        state.onCanvasMove(6, 1)
+        state.onCanvasMove(6, 5)
+        state.onCanvasMove(2, 5)
+        state.onCanvasMove(2, 1)
+        state.onCanvasUp()
+        state.selectColour(RED)
+        state.selectTool(Fill)
+        state.onCanvasDown(4, 3)
+        val filled = state.bitmap.copyPixels()
+        val versionAfterFill = state.version
+        // Dragging with the fill tool paints nothing; version only tracks events.
+        state.onCanvasMove(5, 4)
+        state.onCanvasMove(4, 3)
+        state.onCanvasUp()
+        assertContentEquals(filled, state.bitmap.copyPixels())
+        assertEquals(versionAfterFill + 2, state.version)
+    }
+
+    @Test
+    fun changingTheActiveColourBetweenFillsRecoloursOnlyNewFills() {
+        val state = AppState(8, 8)
+        // Split the canvas with a vertical pencil line in the default colour.
+        state.onCanvasDown(3, 0)
+        state.onCanvasMove(3, 7)
+        state.onCanvasUp()
+        state.selectTool(Fill)
+        // First fill in the default colour: the left side.
+        state.onCanvasDown(0, 0)
+        state.onCanvasUp()
+        // Second fill in red: the right side.
+        state.selectColour(RED)
+        state.onCanvasDown(5, 5)
+        state.onCanvasUp()
+        for (y in 0 until state.bitmap.height) {
+            for (x in 0 until state.bitmap.width) {
+                val want = if (x <= 3) DEFAULT_COLOUR else RED
+                assertEquals(want, state.bitmap[x, y], "pixel ($x, $y)")
+            }
+        }
     }
 }

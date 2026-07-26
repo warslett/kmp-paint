@@ -4,8 +4,7 @@ import kmppaint.canvas.CanvasBitmap
 
 /**
  * A drawing tool. Tools mutate the bitmap directly; AppState signals the
- * change after each event. Steps 5–6 add Brush and Fill without touching UI
- * code.
+ * change after each event. New tools are added here without touching UI code.
  */
 sealed interface Tool {
     /** Human-readable label shown on the tool selector button. */
@@ -54,5 +53,21 @@ object Brush : Tool {
     }
 }
 
-/** Every tool, in selector display order. Step 6 appends Fill. */
-val TOOLS: List<Tool> = listOf(Pencil, Brush)
+/**
+ * Fill: a click recolours the whole region 4-connected to the clicked pixel
+ * that shares its colour, bounded by pixels of any other colour (FR-4) — so a
+ * closed pencil shape is filled by clicking inside it. A single-click action:
+ * the entire flood fill runs in `onDown` and drags paint nothing.
+ */
+object Fill : Tool {
+    override val label = "Fill"
+
+    override fun onDown(bitmap: CanvasBitmap, x: Int, y: Int, colour: Int) {
+        floodFill(bitmap, x, y, colour)
+    }
+
+    override fun onMove(bitmap: CanvasBitmap, fromX: Int, fromY: Int, toX: Int, toY: Int, colour: Int) = Unit
+}
+
+/** Every tool, in selector display order. */
+val TOOLS: List<Tool> = listOf(Pencil, Brush, Fill)
