@@ -11,6 +11,7 @@ import kmppaint.palette.PALETTE
 import kmppaint.palette.RED
 import kmppaint.tools.BRUSH_RADIUS
 import kmppaint.tools.Brush
+import kmppaint.tools.Fill
 import kmppaint.tools.Pencil
 
 class AppStateTest {
@@ -224,6 +225,80 @@ class AppStateTest {
         assertEquals(DEFAULT_COLOUR, state.bitmap[6, 3], "top of the brush dab")
         assertEquals(DEFAULT_COLOUR, state.bitmap[9, 6], "right edge of the brush dab")
         assertEquals(5 + 29, state.bitmap.copyPixels().count { it != WHITE })
+    }
+
+    @Test
+    fun fillOnCanvasDownFillsWithTheActiveColourAndBumpsVersionByExactlyOne() {
+        val state = AppState(8, 8)
+        // A default-colour pencil rectangle encloses a region.
+        state.onCanvasDown(2, 2)
+        state.onCanvasMove(6, 2)
+        state.onCanvasMove(6, 6)
+        state.onCanvasMove(2, 6)
+        state.onCanvasMove(2, 2)
+        state.onCanvasUp()
+        assertEquals(5, state.version)
+        state.selectColour(RED)
+        state.selectTool(Fill)
+        state.onCanvasDown(4, 4)
+        assertEquals(6, state.version, "one version bump for the fill click")
+        for (y in 0 until state.bitmap.height) {
+            for (x in 0 until state.bitmap.width) {
+                val want = when {
+                    x in 3..5 && y in 3..5 -> RED
+                    x in 2..6 && y in 2..6 -> DEFAULT_COLOUR
+                    else -> WHITE
+                }
+                assertEquals(want, state.bitmap[x, y], "pixel ($x, $y)")
+            }
+        }
+    }
+
+    @Test
+    fun onCanvasMoveAfterAFillChangesNothingAndDoesNotBumpVersionAgain() {
+        val state = AppState(8, 8)
+        state.selectColour(RED)
+        state.selectTool(Fill)
+        state.onCanvasDown(4, 4)
+        assertEquals(1, state.version)
+        // Only the stroke-tracking no-ops remain: same-pixel move, and a move
+        // after the stroke has ended.
+        state.onCanvasMove(4, 4)
+        state.onCanvasUp()
+        state.onCanvasMove(6, 6)
+        assertEquals(1, state.version)
+        for (y in 0 until state.bitmap.height) {
+            for (x in 0 until state.bitmap.width) {
+                assertEquals(RED, state.bitmap[x, y], "pixel ($x, $y)")
+            }
+        }
+    }
+
+    @Test
+    fun changingTheActiveColourBetweenFillsRecoloursOnlyTheSecondRegion() {
+        val state = AppState(9, 9)
+        // A blue pencil wall splits the canvas into two white regions.
+        state.selectColour(BLUE)
+        state.onCanvasDown(4, 0)
+        state.onCanvasMove(4, 8)
+        state.onCanvasUp()
+        state.selectTool(Fill)
+        state.selectColour(DEFAULT_COLOUR)
+        state.onCanvasDown(1, 1)
+        state.onCanvasUp()
+        state.selectColour(RED)
+        state.onCanvasDown(7, 7)
+        state.onCanvasUp()
+        for (y in 0 until state.bitmap.height) {
+            for (x in 0 until state.bitmap.width) {
+                val want = when {
+                    x < 4 -> DEFAULT_COLOUR
+                    x == 4 -> BLUE
+                    else -> RED
+                }
+                assertEquals(want, state.bitmap[x, y], "pixel ($x, $y)")
+            }
+        }
     }
 
     @Test
