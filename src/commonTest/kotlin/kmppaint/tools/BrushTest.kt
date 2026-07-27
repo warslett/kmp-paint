@@ -136,7 +136,7 @@ class BrushTest {
     }
 
     @Test
-    fun toolsListIsExactlyPencilThenBrushInSelectorOrder() {
-        assertEquals(listOf(Pencil, Brush), TOOLS)
+    fun toolsListIsExactlyPencilThenBrushThenFillInSelectorOrder() {
+        assertEquals(listOf(Pencil, Brush, Fill), TOOLS)
     }
 }
