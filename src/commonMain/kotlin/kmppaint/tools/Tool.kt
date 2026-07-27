@@ -4,8 +4,7 @@ import kmppaint.canvas.CanvasBitmap
 
 /**
  * A drawing tool. Tools mutate the bitmap directly; AppState signals the
- * change after each event. Steps 5–6 add Brush and Fill without touching UI
- * code.
+ * change after each event.
  */
 sealed interface Tool {
     /** Human-readable label shown on the tool selector button. */
@@ -54,5 +53,55 @@ object Brush : Tool {
     }
 }
 
-/** Every tool, in selector display order. Step 6 appends Fill. */
-val TOOLS: List<Tool> = listOf(Pencil, Brush)
+/** Flood fill: recolours the four-connected region under the pointer. */
+object Fill : Tool {
+    override val label = "Fill"
+
+    override fun onDown(bitmap: CanvasBitmap, x: Int, y: Int, colour: Int) {
+        if (x !in 0 until bitmap.width || y !in 0 until bitmap.height) return
+
+        val targetColour = bitmap[x, y]
+        if (targetColour == colour) return
+
+        val pending = IntArray(bitmap.width * bitmap.height)
+        var pendingCount = 0
+
+        bitmap[x, y] = colour
+        pending[pendingCount++] = y * bitmap.width + x
+
+        while (pendingCount > 0) {
+            val index = pending[--pendingCount]
+            val pixelX = index % bitmap.width
+            val pixelY = index / bitmap.width
+
+            if (pixelX > 0 && bitmap[pixelX - 1, pixelY] == targetColour) {
+                bitmap[pixelX - 1, pixelY] = colour
+                pending[pendingCount++] = index - 1
+            }
+            if (pixelX + 1 < bitmap.width && bitmap[pixelX + 1, pixelY] == targetColour) {
+                bitmap[pixelX + 1, pixelY] = colour
+                pending[pendingCount++] = index + 1
+            }
+            if (pixelY > 0 && bitmap[pixelX, pixelY - 1] == targetColour) {
+                bitmap[pixelX, pixelY - 1] = colour
+                pending[pendingCount++] = index - bitmap.width
+            }
+            if (pixelY + 1 < bitmap.height && bitmap[pixelX, pixelY + 1] == targetColour) {
+                bitmap[pixelX, pixelY + 1] = colour
+                pending[pendingCount++] = index + bitmap.width
+            }
+        }
+    }
+
+    override fun onMove(
+        bitmap: CanvasBitmap,
+        fromX: Int,
+        fromY: Int,
+        toX: Int,
+        toY: Int,
+        colour: Int,
+    ) = Unit
+}
+
+/** Every tool, in selector display order. */
+val TOOLS: List<Tool> = listOf(Pencil, Brush, Fill)

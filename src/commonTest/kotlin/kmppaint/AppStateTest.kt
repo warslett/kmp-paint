@@ -11,6 +11,7 @@ import kmppaint.palette.PALETTE
 import kmppaint.palette.RED
 import kmppaint.tools.BRUSH_RADIUS
 import kmppaint.tools.Brush
+import kmppaint.tools.Fill
 import kmppaint.tools.Pencil
 
 class AppStateTest {
@@ -153,10 +154,12 @@ class AppStateTest {
     }
 
     @Test
-    fun selectToolSwitchesToBrushAndBackToPencil() {
+    fun selectToolSwitchesAmongAllTools() {
         val state = AppState(4, 3)
         state.selectTool(Brush)
         assertEquals(Brush, state.activeTool)
+        state.selectTool(Fill)
+        assertEquals(Fill, state.activeTool)
         state.selectTool(Pencil)
         assertEquals(Pencil, state.activeTool)
     }
@@ -236,5 +239,59 @@ class AppStateTest {
         state.onCanvasUp()
         assertEquals(BLUE, state.activeColour)
         assertEquals(Brush, state.activeTool)
+    }
+
+    @Test
+    fun fillDispatchRecoloursOnlyTheEnclosedRegionAndKeepsSelections() {
+        val state = AppState(7, 7)
+        Pencil.onMove(state.bitmap, 1, 1, 5, 1, DEFAULT_COLOUR)
+        Pencil.onMove(state.bitmap, 5, 1, 5, 5, DEFAULT_COLOUR)
+        Pencil.onMove(state.bitmap, 5, 5, 1, 5, DEFAULT_COLOUR)
+        Pencil.onMove(state.bitmap, 1, 5, 1, 1, DEFAULT_COLOUR)
+        state.selectColour(RED)
+        state.selectTool(Fill)
+
+        state.onCanvasDown(3, 3)
+        state.onCanvasUp()
+
+        assertEquals(1, state.version)
+        assertEquals(RED, state.activeColour)
+        assertEquals(Fill, state.activeTool)
+        for (y in 0 until state.bitmap.height) {
+            for (x in 0 until state.bitmap.width) {
+                val onBorder = (x in 1..5 && (y == 1 || y == 5)) ||
+                    (y in 1..5 && (x == 1 || x == 5))
+                val want = when {
+                    onBorder -> DEFAULT_COLOUR
+                    x in 2..4 && y in 2..4 -> RED
+                    else -> WHITE
+                }
+                assertEquals(want, state.bitmap[x, y], "pixel ($x, $y)")
+            }
+        }
+    }
+
+    @Test
+    fun movingWithFillSelectedDoesNotFillAnotherRegion() {
+        val state = AppState(7, 3)
+        for (y in 0 until state.bitmap.height) state.bitmap[3, y] = DEFAULT_COLOUR
+        state.selectColour(RED)
+        state.selectTool(Fill)
+
+        state.onCanvasDown(1, 1)
+        state.onCanvasMove(5, 1)
+        state.onCanvasUp()
+
+        assertEquals(2, state.version, "AppState bumps the version for each dispatched drawing event")
+        for (y in 0 until state.bitmap.height) {
+            for (x in 0 until state.bitmap.width) {
+                val want = when {
+                    x < 3 -> RED
+                    x == 3 -> DEFAULT_COLOUR
+                    else -> WHITE
+                }
+                assertEquals(want, state.bitmap[x, y], "pixel ($x, $y)")
+            }
+        }
     }
 }

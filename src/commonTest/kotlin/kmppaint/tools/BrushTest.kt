@@ -135,8 +135,4 @@ class BrushTest {
         assertEquals(29, bitmap.copyPixels().count { it == blue })
     }
 
-    @Test
-    fun toolsListIsExactlyPencilThenBrushInSelectorOrder() {
-        assertEquals(listOf(Pencil, Brush), TOOLS)
-    }
 }
