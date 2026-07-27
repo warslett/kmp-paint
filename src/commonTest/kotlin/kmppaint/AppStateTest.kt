@@ -11,6 +11,7 @@ import kmppaint.palette.PALETTE
 import kmppaint.palette.RED
 import kmppaint.tools.BRUSH_RADIUS
 import kmppaint.tools.Brush
+import kmppaint.tools.Fill
 import kmppaint.tools.Pencil
 
 class AppStateTest {
@@ -236,5 +237,58 @@ class AppStateTest {
         state.onCanvasUp()
         assertEquals(BLUE, state.activeColour)
         assertEquals(Brush, state.activeTool)
+    }
+
+    @Test
+    fun fillToolFillsTheClickedRegionInTheActiveColour() {
+        val state = AppState(7, 7)
+        // A wall down the middle, drawn with the pencil.
+        state.onCanvasDown(3, 0)
+        state.onCanvasMove(3, 6)
+        state.onCanvasUp()
+        state.selectColour(BLUE)
+        state.selectTool(Fill)
+        state.onCanvasDown(0, 0)
+        state.onCanvasUp()
+        for (y in 0 until 7) {
+            for (x in 0 until 7) {
+                val want = when {
+                    x == 3 -> DEFAULT_COLOUR
+                    x < 3 -> BLUE
+                    else -> WHITE
+                }
+                assertEquals(want, state.bitmap[x, y], "pixel ($x, $y)")
+            }
+        }
+    }
+
+    @Test
+    fun draggingWithTheFillToolDoesNotFillTheRegionsDraggedOver() {
+        val state = AppState(7, 7)
+        state.onCanvasDown(3, 0)
+        state.onCanvasMove(3, 6)
+        state.onCanvasUp()
+        state.selectColour(BLUE)
+        state.selectTool(Fill)
+        // Press left of the wall, then drag across it to the right-hand region.
+        state.onCanvasDown(0, 3)
+        state.onCanvasMove(6, 3)
+        state.onCanvasUp()
+        for (y in 0 until 7) {
+            assertEquals(WHITE, state.bitmap[5, y], "right-hand region pixel (5, $y)")
+        }
+        assertEquals(BLUE, state.bitmap[0, 3], "the clicked region is still filled")
+    }
+
+    @Test
+    fun fillToolOnAnAlreadyMatchingRegionLeavesTheBitmapUnchanged() {
+        val state = AppState(5, 5)
+        state.selectTool(Fill)
+        state.selectColour(RED)
+        state.onCanvasDown(2, 2)
+        state.onCanvasUp()
+        state.onCanvasDown(2, 2)
+        state.onCanvasUp()
+        assertTrue(state.bitmap.copyPixels().all { it == RED })
     }
 }
