@@ -4,8 +4,8 @@ import kmppaint.canvas.CanvasBitmap
 
 /**
  * A drawing tool. Tools mutate the bitmap directly; AppState signals the
- * change after each event. Steps 5–6 add Brush and Fill without touching UI
- * code.
+ * change after each event. Tools are stateless and the UI is generic over
+ * them, so adding a tool never touches UI code.
  */
 sealed interface Tool {
     /** Human-readable label shown on the tool selector button. */
@@ -54,5 +54,5 @@ object Brush : Tool {
     }
 }
 
-/** Every tool, in selector display order. Step 6 appends Fill. */
-val TOOLS: List<Tool> = listOf(Pencil, Brush)
+/** Every tool, in selector display order. */
+val TOOLS: List<Tool> = listOf(Pencil, Brush, Fill)
