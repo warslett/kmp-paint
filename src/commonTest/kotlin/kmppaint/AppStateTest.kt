@@ -11,6 +11,7 @@ import kmppaint.palette.PALETTE
 import kmppaint.palette.RED
 import kmppaint.tools.BRUSH_RADIUS
 import kmppaint.tools.Brush
+import kmppaint.tools.Fill
 import kmppaint.tools.Pencil
 
 class AppStateTest {
@@ -236,5 +237,64 @@ class AppStateTest {
         state.onCanvasUp()
         assertEquals(BLUE, state.activeColour)
         assertEquals(Brush, state.activeTool)
+    }
+
+    @Test
+    fun fillOnCanvasDownFillsTheClosedRegionAndBumpsVersionOnce() {
+        val state = AppState(10, 10)
+        // A closed red square outline drawn with the pencil.
+        state.selectColour(RED)
+        state.onCanvasDown(1, 1)
+        state.onCanvasMove(8, 1)
+        state.onCanvasMove(8, 8)
+        state.onCanvasMove(1, 8)
+        state.onCanvasMove(1, 1)
+        state.onCanvasUp()
+        val before = state.version
+        state.selectColour(BLUE)
+        state.selectTool(Fill)
+        state.onCanvasDown(4, 4)
+        state.onCanvasUp()
+        assertEquals(before + 1, state.version, "one version bump for the fill click")
+        for (y in 2..7) {
+            for (x in 2..7) {
+                assertEquals(BLUE, state.bitmap[x, y], "interior pixel ($x, $y)")
+            }
+        }
+        for (x in 1..8) {
+            assertEquals(RED, state.bitmap[x, 1], "top outline ($x, 1)")
+            assertEquals(RED, state.bitmap[x, 8], "bottom outline ($x, 8)")
+        }
+        for (y in 2..7) {
+            assertEquals(RED, state.bitmap[1, y], "left outline (1, $y)")
+            assertEquals(RED, state.bitmap[8, y], "right outline (8, $y)")
+        }
+        assertEquals(WHITE, state.bitmap[0, 0], "outside (0, 0)")
+        assertEquals(WHITE, state.bitmap[5, 9], "outside (5, 9)")
+    }
+
+    @Test
+    fun draggingWithTheFillToolDoesNotDrawAnythingExtra() {
+        val state = AppState(8, 8)
+        state.selectTool(Fill)
+        state.onCanvasDown(2, 2)
+        state.onCanvasMove(5, 5)
+        state.onCanvasUp()
+        // The whole blank canvas is one white region, recoloured in the fill
+        // colour by the single click; the drag paints no further pixels.
+        // Version still bumps once per event, as with every tool.
+        assertEquals(2, state.version, "one version bump per down + move event")
+        assertTrue(state.bitmap.copyPixels().all { it == DEFAULT_COLOUR })
+    }
+
+    @Test
+    fun fillDoesNotChangeActiveColourOrActiveTool() {
+        val state = AppState(8, 8)
+        state.selectColour(BLUE)
+        state.selectTool(Fill)
+        state.onCanvasDown(1, 1)
+        state.onCanvasUp()
+        assertEquals(BLUE, state.activeColour)
+        assertEquals(Fill, state.activeTool)
     }
 }
