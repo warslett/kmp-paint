@@ -11,6 +11,7 @@ import kmppaint.palette.PALETTE
 import kmppaint.palette.RED
 import kmppaint.tools.BRUSH_RADIUS
 import kmppaint.tools.Brush
+import kmppaint.tools.Fill
 import kmppaint.tools.Pencil
 
 class AppStateTest {
@@ -236,5 +237,61 @@ class AppStateTest {
         state.onCanvasUp()
         assertEquals(BLUE, state.activeColour)
         assertEquals(Brush, state.activeTool)
+    }
+
+    @Test
+    fun selectToolSwitchesToFillAndBackToPencil() {
+        val state = AppState(4, 3)
+        state.selectTool(Fill)
+        assertEquals(Fill, state.activeTool)
+        state.selectTool(Pencil)
+        assertEquals(Pencil, state.activeTool)
+    }
+
+    @Test
+    fun fillToolOnCanvasDownFillsTheInteriorOfAPencilledSquareAndBumpsVersionOnce() {
+        val state = AppState(9, 9)
+        // A closed square outline: down at (2, 2), around, back to (2, 2).
+        state.onCanvasDown(2, 2)
+        state.onCanvasMove(6, 2)
+        state.onCanvasMove(6, 6)
+        state.onCanvasMove(2, 6)
+        state.onCanvasMove(2, 2)
+        state.onCanvasUp()
+        val versionAfterOutline = state.version
+        state.selectColour(RED)
+        state.selectTool(Fill)
+        state.onCanvasDown(4, 4)
+        state.onCanvasUp()
+        assertEquals(versionAfterOutline + 1, state.version)
+        for (y in 0 until state.bitmap.height) {
+            for (x in 0 until state.bitmap.width) {
+                val want = when {
+                    x in 3..5 && y in 3..5 -> RED
+                    x in 2..6 && y in 2..6 -> DEFAULT_COLOUR
+                    else -> WHITE
+                }
+                assertEquals(want, state.bitmap[x, y], "pixel ($x, $y)")
+            }
+        }
+    }
+
+    @Test
+    fun draggingWithTheFillToolDoesNotChangeTheBitmap() {
+        val state = AppState(9, 9)
+        state.onCanvasDown(2, 2)
+        state.onCanvasMove(6, 2)
+        state.onCanvasMove(6, 6)
+        state.onCanvasMove(2, 6)
+        state.onCanvasMove(2, 2)
+        state.onCanvasUp()
+        state.selectColour(RED)
+        state.selectTool(Fill)
+        state.onCanvasDown(4, 4)
+        val afterFill = state.bitmap.copyPixels()
+        state.onCanvasMove(0, 0)
+        state.onCanvasMove(8, 8)
+        state.onCanvasUp()
+        assertTrue(afterFill.contentEquals(state.bitmap.copyPixels()))
     }
 }
